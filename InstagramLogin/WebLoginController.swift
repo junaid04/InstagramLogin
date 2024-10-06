@@ -7,15 +7,16 @@
 //
 
 import UIKit
+import WebKit
 
 protocol WebLoginControllerDelegate {
-    
-    func webLoginController(didFinishLogin userDict:NSDictionary)
+    func webLoginController(didFinishLogin userDict: NSDictionary)
 }
 
-class WebLoginController: UIViewController,UIWebViewDelegate {
+class WebLoginController: UIViewController {
     
-    @IBOutlet weak var webView: UIWebView!
+    @IBOutlet weak var webView: WKWebView!
+    
     let indicator = UIActivityIndicatorView()
     
     var delegate : WebLoginControllerDelegate?
@@ -23,12 +24,12 @@ class WebLoginController: UIViewController,UIWebViewDelegate {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        // Do any additional setup after loading the view.
+        webView.navigationDelegate = self
         
         startAuthorization()
         
         indicator.frame = CGRect(x: 0, y: 0, width: self.view.frame.size.width, height: self.view.frame.size.height)
-        indicator.activityIndicatorViewStyle = .whiteLarge
+        indicator.activityIndicatorViewStyle = .large
         indicator.backgroundColor = UIColor.lightText
         indicator.color = UIColor.black
         webView.addSubview(indicator)
@@ -61,7 +62,7 @@ class WebLoginController: UIViewController,UIWebViewDelegate {
         
         // Create a URL request and load it in the web view.
         let request = URLRequest(url: URL(string: authorizationURL)!)
-        webView.loadRequest(request)
+        webView.load(request)
     }
     
     func requestForAccessToken(_ authorizationCode: String) {
@@ -95,8 +96,8 @@ class WebLoginController: UIViewController,UIWebViewDelegate {
         
         // Initialize a NSURLSession object.
         let session = URLSession(configuration: URLSessionConfiguration.default)
-    
-
+        
+        
         // Make the request.
         let task: URLSessionDataTask = session.dataTask(with: request,completionHandler: { (data, response, error) -> Void in
             // Get the HTTP status code of the request.
@@ -111,7 +112,7 @@ class WebLoginController: UIViewController,UIWebViewDelegate {
                         let dataDictionary = try JSONSerialization.jsonObject(with: data!, options: JSONSerialization.ReadingOptions.mutableContainers) as! [String:Any]
                         
                         let userData = dataDictionary["user"] as? NSDictionary
-
+                        
                         print(dataDictionary)
                         
                         DispatchQueue.main.async(execute: { () -> Void in
@@ -125,42 +126,44 @@ class WebLoginController: UIViewController,UIWebViewDelegate {
                     }
                 }
             }
-                
+            
             else {
                 self.indicator.stopAnimating()
                 print(error!.localizedDescription)
                 
             }
-        }) 
+        })
         
         task.resume()
     }
-    
-    //MARK: - WebView Delegate
-    func webViewDidStartLoad(_ webView: UIWebView) {
-        
+}
+
+// MARK: - WKNavigationDelegate
+extension WebLoginController: WKNavigationDelegate {
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         indicator.startAnimating()
     }
     
-    func webViewDidFinishLoad(_ webView: UIWebView) {
-        
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         indicator.stopAnimating()
     }
     
-    func webView(_ webView: UIWebView, shouldStartLoadWith request: URLRequest, navigationType: UIWebViewNavigationType) -> Bool {
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void) {
         
-        let url = request.url!
-        print(url.host!)
-        if url.host == "com.ajk.demo" {
-            indicator.startAnimating()
-            if url.absoluteString.range(of: "code") != nil {
-                // Extract the authorization code.
-                let urlParts = url.absoluteString.components(separatedBy: "?")
-                let code = urlParts[1].components(separatedBy: "=")[1]
-                
-                requestForAccessToken(code)
+        if let url = navigationAction.request.url {
+            print(url.host ?? "")
+            
+            if url.host == "com.ajk.demo" {
+                indicator.startAnimating()
+                if url.absoluteString.contains("code") {
+                    // Extract the authorization code.
+                    let urlParts = url.absoluteString.components(separatedBy: "?")
+                    if let code = urlParts[1].components(separatedBy: "=").last {
+                        requestForAccessToken(code)
+                    }
+                }
             }
         }
-        return true
+        decisionHandler(.allow)  // Allow the navigation to proceed
     }
 }

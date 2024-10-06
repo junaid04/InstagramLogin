@@ -26,7 +26,7 @@ class HomeController: UIViewController,WebLoginControllerDelegate {
         // Do any additional setup after loading the view, typically from a nib.
         contentView.isHidden = true
         btnLogin.setTitleColor(UIColor.blue, for: UIControlState())
-        loadingView.activityIndicatorViewStyle = .whiteLarge
+        loadingView.activityIndicatorViewStyle = .large
         loadingView.frame = CGRect(x: 0, y: 0, width: self.view.frame.size.width, height: self.view.frame.size.height)
         loadingView.color = UIColor.black
         self.view.addSubview(loadingView)
